@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
-import { MoreHorizontal, Phone, Lock, Bot } from 'lucide-vue-next'
+import { MoreHorizontal, Phone, Lock, Bot, Eye } from 'lucide-vue-next'
 import type { Cliente, CrmStatus } from '@/types/crm'
 
 const props = defineProps<{
@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update-status', id: string, newStatus: CrmStatus): void
+  (e: 'view-details', lead: Cliente): void
 }>()
 
 // Columns Configuration
@@ -18,7 +19,7 @@ const columnsConfig = [
   { key: 'em_contato' as CrmStatus, label: 'Em Contato', color: 'bg-yellow-500', dot: 'bg-yellow-500' },
   { key: 'qualificado' as CrmStatus, label: 'Qualificado', color: 'bg-purple-500', dot: 'bg-purple-500' },
   { key: 'convertido' as CrmStatus, label: 'Convertido', color: 'bg-green-500', dot: 'bg-green-500' },
-  { key: 'perdido' as CrmStatus, label: 'Perdido', color: 'bg-red-500', dot: 'bg-red-500' },
+  { key: 'perdido' as CrmStatus, label: 'Perdido', color: 'bg-red-500', dot: 'bg-red-500' }
 ]
 
 // Create a computed property for each column to handle drag & drop
@@ -26,7 +27,13 @@ const columnsData = computed(() => {
   const map: Record<string, any> = {}
   columnsConfig.forEach(col => {
     map[col.key] = computed({
-      get: () => props.leads.filter(l => l.status_crm === col.key),
+      get: () => {
+        // Force null/empty status_crm into 'novo' column
+        if (col.key === 'novo') {
+          return props.leads.filter(l => !l.status_crm || l.status_crm === '' || l.status_crm === 'novo')
+        }
+        return props.leads.filter(l => l.status_crm === col.key)
+      },
       set: (newVal: Cliente[]) => {
         // Identify the item that doesn't belong to this column yet (status mismatch)
         const movedLead = newVal.find(l => l.status_crm !== col.key)
@@ -79,8 +86,12 @@ const columnsData = computed(() => {
             <div class="flex-1 min-w-0">
                <span class="font-bold text-white text-sm block truncate">{{ lead.nome || 'Desconhecido' }}</span>
             </div>
-            <button class="text-[#9CA3AF] hover:text-white transition-colors">
-              <MoreHorizontal class="w-4 h-4" />
+            <button 
+              @click="emit('view-details', lead)"
+              class="p-1.5 text-[#9CA3AF] hover:text-[#00E096] hover:bg-[#00E096]/10 rounded-lg transition-all"
+              title="Ver Detalhes"
+            >
+              <Eye class="w-4 h-4" />
             </button>
           </div>
 

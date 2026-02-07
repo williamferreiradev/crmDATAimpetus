@@ -11,6 +11,8 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-vue-next'
+import LeadDetailsModal from '@/components/leads/LeadDetailsModal.vue'
+import type { Cliente } from '@/types/crm'
 
 const supabase = useSupabaseClient()
 
@@ -37,6 +39,9 @@ const metrics = reactive({
   locked: 0
 })
 const loading = ref(true)
+const showModal = ref(false)
+const selectedLead = ref<Cliente | null>(null)
+const fullLeadsData = ref<any[]>([])
 
 // Helper to calculate date 7 days ago
 const sevenDaysAgo = new Date()
@@ -72,14 +77,15 @@ const fetchData = async () => {
 
     // Update Leads Table
     if (tableRes.data) {
+      fullLeadsData.value = tableRes.data // Store full data for modal
       leads.value = tableRes.data.map((item: any) => ({
         id: item.id,
         name: item.nome || 'Sem nome',
         avatar: (item.nome || item.whatsapp_id || 'U').charAt(0).toUpperCase(),
-        phone: item.whatsapp_id, // Formatting could be added here
+        phone: item.whatsapp_id,
         interested: item.qualificado || false,
-        product: item.metadata?.product || 'Não informado', // Assuming metadata has product, else default
-        status: item.trava ? 'locked' : (item.is_active ? 'active' : 'active') // Default to active if not locked for now? Or check logic
+        product: item.metadata?.product || 'Não informado',
+        status: item.trava ? 'locked' : (item.is_active ? 'active' : 'active')
       }))
     }
 
@@ -87,6 +93,36 @@ const fetchData = async () => {
     console.error('Error fetching dashboard data:', error)
   } finally {
     loading.value = false
+  }
+}
+
+// Open Lead Details Modal
+const openLeadDetails = (leadId: string) => {
+  const fullLead = fullLeadsData.value.find((l: any) => l.id === leadId)
+  if (fullLead) {
+    selectedLead.value = fullLead as Cliente
+    showModal.value = true
+  }
+}
+
+// Open Chat Page
+const openChat = (leadId: string) => {
+  navigateTo(`/chats?clientId=${leadId}`)
+}
+
+// Handle Status Update
+const handleStatusUpdate = async (id: string, newStatus: string) => {
+  const lead = fullLeadsData.value.find(l => l.id === id)
+  if (lead) {
+    lead.status_crm = newStatus
+  }
+}
+
+// Handle Notes Update
+const handleNotesUpdate = async (id: string, notes: string) => {
+  const lead = fullLeadsData.value.find(l => l.id === id)
+  if (lead && lead.metadata) {
+    lead.metadata.notes = notes
   }
 }
 
@@ -260,10 +296,18 @@ onMounted(() => {
                 <!-- Ações -->
                 <td class="p-4 text-right">
                   <div class="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                    <button class="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors" title="Ver Detalhes">
+                    <button 
+                      @click="openLeadDetails(lead.id)"
+                      class="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors" 
+                      title="Ver Detalhes"
+                    >
                       <Eye class="w-4 h-4" />
                     </button>
-                    <button class="p-1.5 text-gray-400 hover:text-[#00E096] hover:bg-[#00E096]/10 rounded-lg transition-colors" title="Abrir Chat">
+                    <button 
+                      @click="openChat(lead.id)" 
+                      class="p-1.5 text-gray-400 hover:text-[#00E096] hover:bg-[#00E096]/10 rounded-lg transition-colors" 
+                      title="Abrir Chat"
+                    >
                       <MessageSquare class="w-4 h-4" />
                     </button>
                     <button class="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-500/10 rounded-lg transition-colors" title="Travar/Destravar">
@@ -292,4 +336,13 @@ onMounted(() => {
       </div>
     </main>
   </div>
+
+  <!-- Lead Details Modal (Outside main container) -->
+  <LeadDetailsModal
+    :model-value="showModal"
+    @update:model-value="showModal = $event"
+    :lead="selectedLead"
+    @update-status="handleStatusUpdate"
+    @save-notes="handleNotesUpdate"
+  />
 </template>

@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { MessageSquare, KanbanSquare, Table as TableIcon } from 'lucide-vue-next'
 import KanbanBoard from '@/components/crm/KanbanBoard.vue'
 import LeadTable from '@/components/crm/LeadTable.vue'
+import LeadDetailsModal from '@/components/leads/LeadDetailsModal.vue'
 import type { Cliente, CrmStatus } from '@/types/crm'
 
 const supabase = useSupabaseClient()
@@ -11,18 +12,23 @@ const supabase = useSupabaseClient()
 const currentView = ref<'kanban' | 'table'>('kanban')
 const leads = ref<Cliente[]>([])
 const loading = ref(true)
+const error = ref<any>(null)
+const showModal = ref(false)
+const selectedLead = ref<Cliente | null>(null)
 
-// Fetch Data
+// Fetch Data - FETCH ALL CLIENTS (no is_active filter)
 const fetchLeads = async () => {
   loading.value = true
-  const { data, error } = await supabase
+  error.value = null
+  
+  const { data, error: fetchError } = await supabase
     .from('clientes')
     .select('*')
-    .eq('is_active', true)
-    .order('last_interaction_at', { ascending: false })
+    .order('created_at', { ascending: false })
 
-  if (error) {
-    console.error('Error fetching leads:', error)
+  if (fetchError) {
+    console.error('Error fetching leads:', fetchError)
+    error.value = fetchError
   } else {
     leads.value = (data as Cliente[]) || []
   }
@@ -38,15 +44,29 @@ const handleStatusUpdate = async (id: string, newStatus: CrmStatus) => {
   }
 
   // DB Update
-  const { error } = await supabase
+  const { error: updateError } = await supabase
     .from('clientes')
     .update({ status_crm: newStatus })
     .eq('id', id)
 
-  if (error) {
-    console.error('Error updating status:', error)
-    // Revert if error (optional, simplified for now)
+  if (updateError) {
+    console.error('Error updating status:', updateError)
+    // Revert if error
     await fetchLeads() 
+  }
+}
+
+// Open Lead Details Modal
+const openLeadDetails = (lead: Cliente) => {
+  selectedLead.value = lead
+  showModal.value = true
+}
+
+// Handle Notes Save
+const handleNotesUpdate = async (id: string, notes: string) => {
+  const lead = leads.value.find(l => l.id === id)
+  if (lead && lead.metadata) {
+    lead.metadata.notes = notes
   }
 }
 
@@ -58,6 +78,9 @@ onMounted(() => {
 <template>
   <div class="min-h-screen bg-[#050505] text-white font-sans selection:bg-primary-500 selection:text-black">
     <Sidebar />
+
+    <!-- Error Debug Output -->
+    <pre v-if="error" class="fixed top-4 right-4 bg-red-900 text-white p-4 rounded-lg z-50 max-w-md overflow-auto">{{ error }}</pre>
 
     <main class="ml-64 p-8 h-screen overflow-hidden flex flex-col">
       <!-- Header -->
@@ -112,15 +135,26 @@ onMounted(() => {
             v-if="currentView === 'kanban'" 
             :leads="leads" 
             @update-status="handleStatusUpdate"
+            @view-details="openLeadDetails"
           />
           <LeadTable 
             v-else 
-            :leads="leads" 
+            :leads="leads"
+            @view-details="openLeadDetails"
           />
         </Transition>
       </div>
     </main>
   </div>
+
+  <!-- Lead Details Modal (Outside main container) -->
+  <LeadDetailsModal
+    :model-value="showModal"
+    @update:model-value="showModal = $event"
+    :lead="selectedLead"
+    @update-status="handleStatusUpdate"
+    @save-notes="handleNotesUpdate"
+  />
 </template>
 
 <style scoped>

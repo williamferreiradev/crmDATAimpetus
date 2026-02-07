@@ -4,10 +4,11 @@ export interface Cliente {
     id: string; // uuid
     whatsapp_id: string; // unique
     nome: string | null;
-    status_crm: CrmStatus;
+    status_crm: string; // default 'novo'
     stage: string; // default 'INTRO'
     trava: boolean; // false = Bot (Auto), true = Human (Manual)
     is_active: boolean; // true = show in board
     qualificado: boolean; // true = Interested
-    last_interaction_at: string; // timestamp
+    created_at: string; // timestamp
+    metadata: any; // JSON metadata
 }

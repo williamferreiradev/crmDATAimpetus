@@ -6,6 +6,10 @@ defineProps<{
   leads: Cliente[]
 }>()
 
+const emit = defineEmits<{
+  (e: 'view-details', lead: Cliente): void
+}>()
+
 const statusConfig: Record<CrmStatus, { label: string; dot: string }> = {
   novo: { label: 'Novo', dot: 'bg-blue-500' },
   em_contato: { label: 'Em Contato', dot: 'bg-yellow-500' },
@@ -49,8 +53,8 @@ const statusConfig: Record<CrmStatus, { label: string; dot: string }> = {
             <!-- Status -->
             <td class="p-4">
               <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-[#18181B] border border-[#27272A]">
-                <div :class="['w-2 h-2 rounded-full', statusConfig[lead.status_crm]?.dot || 'bg-gray-500']"></div>
-                <span class="text-white">{{ statusConfig[lead.status_crm]?.label || lead.status_crm }}</span>
+                <div :class="['w-2 h-2 rounded-full', statusConfig[lead.status_crm as CrmStatus]?.dot || 'bg-gray-500']"></div>
+                <span class="text-white">{{ statusConfig[lead.status_crm as CrmStatus]?.label || lead.status_crm || 'Novo' }}</span>
               </div>
             </td>
 
@@ -80,7 +84,11 @@ const statusConfig: Record<CrmStatus, { label: string; dot: string }> = {
                  <button class="p-2 text-gray-400 hover:text-[#00E096] hover:bg-[#00E096]/10 rounded-lg transition-all" title="Abrir Chat">
                    <MessageCircle class="w-4 h-4" />
                  </button>
-                 <button class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all" title="Ver Detalhes">
+                 <button 
+                   @click="emit('view-details', lead)"
+                   class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all" 
+                   title="Ver Detalhes"
+                 >
                    <Eye class="w-4 h-4" />
                  </button>
                </div>
